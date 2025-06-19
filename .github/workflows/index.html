@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaMed & Pharmetika API Integration Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .status-pending { background-color: #FEF3C7; color: #92400E; }
+        .status-sent { background-color: #DBEAFE; color: #1E40AF; }
+        .status-received { background-color: #D1FAE5; color: #065F46; }
+        .status-filling { background-color: #E0E7FF; color: #3730A3; }
+        .status-ready { background-color: #CFFafe; color: #0891B2; }
+        .status-shipped { background-color: #E5E7EB; color: #1F2937; }
+        .status-picked-up { background-color: #E2F5EA; color: #047857; }
+        .status-delivered { background-color: #DCFCE7; color: #166534; }
+        .status-error { background-color: #FEE2E2; color: #991B1B; }
+        
+        .sim-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .sim-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log-entry {
+            transition: all 0.3s ease-in-out;
+            transform-origin: top;
+        }
+        .log-entry.new {
+            animation: fadeInScale 0.5s ease-out;
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">NovaMed & Pharmetika Integration</h1>
+            <p class="mt-2 text-lg text-gray-600">API & Webhook Event Simulation</p>
+        </header>
+
+        <!-- Simulation Control Panel -->
+        <div class="bg-white p-4 rounded-xl shadow-md mb-8 border border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-gamepad mr-3 text-indigo-600"></i>Simulation Controls
+            </h2>
+            <div id="simulation-controls" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                <button id="btn-send-erx" class="sim-button w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+                    <i class="fas fa-paper-plane mr-2"></i>Send eRx
+                </button>
+                <button id="btn-ack" class="sim-button w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow" disabled>
+                    <i class="fas fa-inbox mr-2"></i>Ack Receipt
+                </button>
+                 <button id="btn-fill" class="sim-button w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow" disabled>
+                    <i class="fas fa-pills mr-2"></i>Start Filling
+                </button>
+                <button id="btn-ready" class="sim-button w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg shadow" disabled>
+                    <i class="fas fa-check-circle mr-2"></i>Ready (Pickup)
+                </button>
+                <button id="btn-pickup" class="sim-button w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow" disabled>
+                    <i class="fas fa-walking mr-2"></i>Patient Pickup
+                </button>
+                <button id="btn-ship" class="sim-button w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow" disabled>
+                   <i class="fas fa-truck mr-2"></i>Ship to Patient
+                </button>
+                <button id="btn-reset" class="sim-button w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow col-span-full lg:col-span-1">
+                    <i class="fas fa-sync-alt mr-2"></i>Reset
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- NovaMed EMR View -->
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h3 class="text-xl font-bold mb-4 text-indigo-800">
+                    <img src="https://i.imgur.com/your-novamed-logo.png" alt="NovaMed Logo" class="inline h-8 mr-2" onerror="this.style.display='none'"/>
+                    NovaMed Provider Portal
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Patient</label>
+                        <p class="text-lg font-semibold">Sarah Connor</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Prescription</label>
+                        <p class="text-lg font-semibold">Lisinopril 10mg, #30</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Order ID</label>
+                        <p id="novamed-order-id" class="text-lg font-mono text-gray-700">--</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Prescription Status</label>
+                        <div id="novamed-status" class="status-badge status-pending">
+                           <i class="fas fa-hourglass-start mr-2"></i>Pending
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Event Log -->
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h3 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-stream mr-2 text-gray-500"></i>API Event Log</h3>
+                <div id="api-log" class="space-y-3 h-96 overflow-y-auto pr-2">
+                   <div class="text-center text-gray-500 pt-16">
+                       <i class="fas fa-history text-4xl mb-4"></i>
+                       <p>Event log is empty. <br>Press "Send eRx" to begin.</p>
+                   </div>
+                </div>
+            </div>
+
+            <!-- Pharmetika View -->
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                 <h3 class="text-xl font-bold mb-4 text-blue-800">
+                    <img src="https://i.imgur.com/your-pharmetika-logo.png" alt="Pharmetika Logo" class="inline h-8 mr-2" onerror="this.style.display='none'"/>
+                    Pharmetika System
+                </h3>
+                 <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Incoming eRx</label>
+                        <p id="pharmetika-erx" class="text-lg font-semibold">None</p>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-500">Pharmetika Order ID</label>
+                        <p id="pharmetika-order-id" class="text-lg font-mono text-gray-700">--</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Fulfillment Status</label>
+                        <div id="pharmetika-status" class="status-badge status-pending">
+                            <i class="fas fa-inbox mr-2"></i>Awaiting eRx
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const controls = {
+                sendErx: document.getElementById('btn-send-erx'),
+                ack: document.getElementById('btn-ack'),
+                fill: document.getElementById('btn-fill'),
+                ready: document.getElementById('btn-ready'),
+                pickup: document.getElementById('btn-pickup'),
+                ship: document.getElementById('btn-ship'),
+                reset: document.getElementById('btn-reset'),
+            };
+
+            const displays = {
+                novamedOrderId: document.getElementById('novamed-order-id'),
+                novamedStatus: document.getElementById('novamed-status'),
+                apiLog: document.getElementById('api-log'),
+                pharmetikaErx: document.getElementById('pharmetika-erx'),
+                pharmetikaOrderId: document.getElementById('pharmetika-order-id'),
+                pharmetikaStatus: document.getElementById('pharmetika-status'),
+            };
+            
+            const initialState = {
+                novamedOrderId: '--',
+                novamedStatus: { text: 'Pending', class: 'status-pending', icon: 'fas fa-hourglass-start' },
+                apiLog: `<div class="text-center text-gray-500 pt-16"><i class="fas fa-history text-4xl mb-4"></i><p>Event log is empty. <br>Press "Send eRx" to begin.</p></div>`,
+                pharmetikaErx: 'None',
+                pharmetikaOrderId: '--',
+                pharmetikaStatus: { text: 'Awaiting eRx', class: 'status-pending', icon: 'fas fa-inbox' },
+                buttons: {
+                    sendErx: true, ack: false, fill: false, ready: false, pickup: false, ship: false
+                }
+            };
+            
+            let currentState = {};
+
+            // --- State Management ---
+            function updateUI() {
+                displays.novamedOrderId.textContent = currentState.novamedOrderId;
+                updateStatus(displays.novamedStatus, currentState.novamedStatus);
+
+                displays.apiLog.innerHTML = currentState.apiLog;
+                
+                displays.pharmetikaErx.textContent = currentState.pharmetikaErx;
+                displays.pharmetikaOrderId.textContent = currentState.pharmetikaOrderId;
+                updateStatus(displays.pharmetikaStatus, currentState.pharmetikaStatus);
+
+                Object.keys(controls).forEach(key => {
+                    if (controls[key] && typeof currentState.buttons[key.toLowerCase()] !== 'undefined') {
+                        controls[key].disabled = !currentState.buttons[key.toLowerCase()];
+                    }
+                });
+
+                // Scroll to bottom of log
+                displays.apiLog.scrollTop = displays.apiLog.scrollHeight;
+            }
+
+            function resetState() {
+                currentState = JSON.parse(JSON.stringify(initialState)); // Deep copy
+                updateUI();
+            }
+
+            function updateStatus(element, statusInfo) {
+                element.className = `status-badge ${statusInfo.class}`;
+                element.innerHTML = `<i class="${statusInfo.icon} mr-2"></i>${statusInfo.text}`;
+            }
+
+            function addLogEntry(type, title, content) {
+                if(currentState.apiLog.includes('Event log is empty')) {
+                   currentState.apiLog = '';
+                }
+                const timestamp = new Date().toLocaleTimeString();
+                const icon = type === 'API' ? 'fa-server' : 'fa-satellite-dish';
+                const color = type === 'API' ? 'indigo' : 'blue';
+
+                const entry = `
+                    <div class="log-entry new bg-gray-100 p-3 rounded-lg border border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold text-sm text-${color}-700"><i class="fas ${icon} mr-2"></i>${type}: ${title}</p>
+                            <p class="text-xs text-gray-500">${timestamp}</p>
+                        </div>
+                        <div class="text-xs text-gray-600 mt-1 pl-5">${content}</div>
+                    </div>
+                `;
+                currentState.apiLog += entry;
+                
+                // Allow CSS animation to finish before removing class
+                setTimeout(() => {
+                    const newEntryEl = displays.apiLog.querySelector('.log-entry.new');
+                    if(newEntryEl) newEntryEl.classList.remove('new');
+                }, 500);
+
+            }
+
+            // --- Event Handlers (Simulation Steps) ---
+
+            controls.sendErx.addEventListener('click', () => {
+                const orderId = `NVM-${Math.floor(1000 + Math.random() * 9000)}`;
+                currentState.novamedOrderId = orderId;
+                
+                addLogEntry(
+                    'API', 
+                    'POST /medication_order', 
+                    `NovaMed sends new eRx to Pharmetika. NovaMed Order ID: ${orderId}`
+                );
+
+                currentState.novamedStatus = { text: 'Sent to Pharmacy', class: 'status-sent', icon: 'fas fa-paper-plane' };
+                currentState.pharmetikaStatus = { text: 'Receiving...', class: 'status-sent', icon: 'fas fa-spinner fa-spin' };
+                
+                currentState.buttons.sendErx = false;
+                currentState.buttons.ack = true;
+                updateUI();
+            });
+
+            controls.ack.addEventListener('click', () => {
+                 const pharmetikaId = `PHM-${Math.floor(10000 + Math.random() * 90000)}`;
+                 currentState.pharmetikaErx = 'Lisinopril 10mg, #30';
+                 currentState.pharmetikaOrderId = pharmetikaId;
+
+                 addLogEntry(
+                    'WEBHOOK', 
+                    'eRx_Received', 
+                    `Pharmetika acknowledges receipt and creates Order ID: ${pharmetikaId}.`
+                );
+
+                currentState.novamedStatus = { text: 'Rx Acknowledged', class: 'status-received', icon: 'fas fa-check' };
+                currentState.pharmetikaStatus = { text: 'Awaiting Fulfillment', class: 'status-received', icon: 'fas fa-check-double' };
+
+                currentState.buttons.ack = false;
+                currentState.buttons.fill = true;
+                updateUI();
+            });
+
+            controls.fill.addEventListener('click', () => {
+                addLogEntry(
+                    'WEBHOOK', 
+                    'eRx_Filling', 
+                    `Pharmacist has begun filling the prescription.`
+                );
+
+                currentState.novamedStatus = { text: 'Pharmacist is Filling', class: 'status-filling', icon: 'fas fa-pills' };
+                currentState.pharmetikaStatus = { text: 'In Progress', class: 'status-filling', icon: 'fas fa-cogs' };
+                
+                currentState.buttons.fill = false;
+                currentState.buttons.ready = true;
+                currentState.buttons.ship = true;
+                updateUI();
+            });
+            
+            controls.ready.addEventListener('click', () => {
+                addLogEntry(
+                    'WEBHOOK', 
+                    'eRx_Ready', 
+                    `Prescription is ready for patient pickup.`
+                );
+
+                currentState.novamedStatus = { text: 'Ready for Pickup', class: 'status-ready', icon: 'fas fa-check-circle' };
+                currentState.pharmetikaStatus = { text: 'Ready for Pickup', class: 'status-ready', icon: 'fas fa-shopping-bag' };
+                
+                currentState.buttons.ready = false;
+                currentState.buttons.ship = false; // Can't ship if it's for pickup
+                currentState.buttons.pickup = true;
+                updateUI();
+            });
+
+            controls.pickup.addEventListener('click', () => {
+                addLogEntry(
+                    'WEBHOOK', 
+                    'eRx_PickedUp', 
+                    `Patient has picked up the medication.`
+                );
+
+                currentState.novamedStatus = { text: 'Completed (Picked Up)', class: 'status-picked-up', icon: 'fas fa-user-check' };
+                currentState.pharmetikaStatus = { text: 'Fulfilled (Picked Up)', class: 'status-picked-up', icon: 'fas fa-thumbs-up' };
+                
+                currentState.buttons.pickup = false;
+                updateUI();
+            });
+
+            controls.ship.addEventListener('click', () => {
+                const trackingNumber = `1Z${Math.random().toString(36).substring(2, 12).toUpperCase()}`;
+                 addLogEntry(
+                    'WEBHOOK', 
+                    'eRx_Shipped', 
+                    `Prescription has been shipped. Tracking: ${trackingNumber}`
+                );
+
+                currentState.novamedStatus = { text: 'Shipped to Patient', class: 'status-shipped', icon: 'fas fa-truck' };
+                currentState.pharmetikaStatus = { text: 'Shipped', class: 'status-shipped', icon: 'fas fa-box-open' };
+                
+                currentState.buttons.ready = false;
+                currentState.buttons.ship = false;
+                currentState.buttons.pickup = false; // Can't pickup if shipped
+                updateUI();
+            });
+
+            controls.reset.addEventListener('click', resetState);
+
+            // --- Initial Load ---
+            resetState();
+        });
+    </script>
+
+</body>
+</html>
